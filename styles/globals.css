@@ -47,8 +47,8 @@ button[class^="btn"] {
   border-radius: 9999px;
 }
 
-button[class^="btn-primary"] {
-  color: black;
+button[class^="btn-primary-fill"] {
+  color: black !important;
 }
 
 button[class^="btn-primary-fill"]:hover {
