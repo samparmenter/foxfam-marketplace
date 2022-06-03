@@ -42,3 +42,15 @@ model-viewer {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
+
+button[class^="btn"] {
+  border-radius: 9999px;
+}
+
+button[class^="btn-primary"] {
+  color: black;
+}
+
+button[class^="btn-primary-fill"]:hover {
+  @apply !bg-primary-900;
+}
