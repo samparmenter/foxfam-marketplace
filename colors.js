@@ -160,6 +160,13 @@ const primaryColors = {
     700: '#7000FF',
     900: '#430099',
   },
+  foxfammint: {
+    100: '#e5fff0',
+    300: '#E2CCFF',
+    500: '#daffe9',
+    700: '#80ffb3',
+    900: '#5DF79B',
+  }
 }
 
 module.exports = primaryColors
