@@ -14,6 +14,7 @@ import {
 import { Balance } from './ConnectWallet'
 import { Wallets } from './ConnectWalletModal'
 import EthAccount from './EthAccount'
+import ThemeSwitcher from './ThemeSwitcher'
 
 type Props = {
   externalLinks: {
@@ -24,7 +25,7 @@ type Props = {
 
 const HamburgerMenu: FC<Props> = ({ externalLinks }) => {
   const { connectors } = useConnect()
-  const { data: accountData } = useAccount()
+  const accountData = useAccount()
   const { disconnect } = useDisconnect()
   const { data: ensName } = useEnsName()
   const { data: ensAvatar } = useEnsAvatar()
@@ -66,6 +67,7 @@ const HamburgerMenu: FC<Props> = ({ externalLinks }) => {
                 ))}
               </div>
             )}
+            <ThemeSwitcher />
             {accountData ? (
               <>
                 <div className="reservoir-label-l flex items-center justify-center border-b border-neutral-300 bg-neutral-100 p-4 text-[#4B5563] hover:text-[#1F2937] dark:border-neutral-600 dark:bg-black dark:text-white dark:hover:bg-neutral-600">

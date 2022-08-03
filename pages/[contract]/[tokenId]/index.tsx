@@ -1,17 +1,12 @@
 import Layout from 'components/Layout'
 import setParams from 'lib/params'
-import {
-  GetStaticPaths,
-  GetStaticProps,
-  InferGetStaticPropsType,
-  NextPage,
-} from 'next'
+import { GetStaticPaths, GetStaticProps, NextPage } from 'next'
 import { useRouter } from 'next/router'
 import TokenAttributes from 'components/TokenAttributes'
 import Head from 'next/head'
 import useDetails from 'hooks/useDetails'
 import useCollection from 'hooks/useCollection'
-import { paths } from '@reservoir0x/client-sdk/dist/types/api'
+import { paths } from '@reservoir0x/reservoir-kit-client'
 import useAsks from 'hooks/useAsks'
 import Listings from 'components/token/Listings'
 import TokenInfo from 'components/token/TokenInfo'
@@ -20,6 +15,7 @@ import Owner from 'components/token/Owner'
 import PriceData from 'components/token/PriceData'
 import TokenMedia from 'components/token/TokenMedia'
 import { useEffect, useState } from 'react'
+import { TokenDetails } from 'types/reservoir'
 
 // Environment variables
 // For more information about these variables
@@ -36,12 +32,22 @@ const META_OG_IMAGE = process.env.NEXT_PUBLIC_META_OG_IMAGE
 
 const COLLECTION = process.env.NEXT_PUBLIC_COLLECTION
 const COMMUNITY = process.env.NEXT_PUBLIC_COMMUNITY
+const COLLECTION_SET_ID = process.env.NEXT_PUBLIC_COLLECTION_SET_ID
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID
 
-type Props = InferGetStaticPropsType<typeof getStaticProps>
+type Props = {
+  collectionId: string
+  tokenDetails?: TokenDetails
+}
 
 const metadata = {
-  title: (title: string) => <title>{title}</title>,
+  title: (title: string) => (
+    <>
+      <title>{title}</title>
+      <meta property="twitter:title" content={title} />
+      <meta property="og:title" content={title} />
+    </>
+  ),
   description: (description: string) => (
     <meta name="description" content={description} />
   ),
@@ -56,7 +62,7 @@ const metadata = {
   ),
 }
 
-const Index: NextPage<Props> = ({ collectionId }) => {
+const Index: NextPage<Props> = ({ collectionId, tokenDetails }) => {
   const [tokenOpenSea, setTokenOpenSea] = useState<any>({
     animation_url: null,
     extension: null,
@@ -131,14 +137,14 @@ const Index: NextPage<Props> = ({ collectionId }) => {
   if (details.error) {
     return <div>There was an error</div>
   }
-
-  const token = details.data?.tokens?.[0]
+  const token = details.data?.tokens?.[0] || { token: tokenDetails }
+  const tokenName = `${token?.token?.name || `#${token?.token?.tokenId}`}`
 
   // META
   const title = META_TITLE
-    ? metadata.title(META_TITLE)
-    : metadata.title(`${token?.token?.name || `#${token?.token?.tokenId}`} - 
-    ${collection.data?.collection?.name}`)
+    ? metadata.title(`${tokenName} - ${META_TITLE}`)
+    : metadata.title(`${tokenName} - 
+    ${token.token?.collection?.name}`)
 
   const description = META_DESCRIPTION
     ? metadata.description(META_DESCRIPTION)
@@ -168,7 +174,7 @@ const Index: NextPage<Props> = ({ collectionId }) => {
           <TokenInfo details={details} />
         </div>
       </div>
-      <div className="col-span-full mb-4 space-y-4 px-2 md:col-span-4 md:col-start-5 lg:col-span-5 lg:col-start-7 lg:px-0 2xl:col-span-4 2xl:col-start-7 3xl:col-start-9 4xl:col-start-11">
+      <div className="col-span-full mb-4 space-y-4 px-2 md:col-span-4 md:col-start-5 lg:col-span-5 lg:col-start-7 lg:px-0 2xl:col-span-5 2xl:col-start-7 3xl:col-start-9 4xl:col-start-11">
         <Owner details={details} bannedOnOpenSea={bannedOnOpenSea} />
         <PriceData details={details} collection={collection} />
         <TokenAttributes
@@ -199,11 +205,14 @@ export const getStaticProps: GetStaticProps<{
   communityId?: string
 }> = async ({ params }) => {
   const contract = params?.contract?.toString()
+  const tokenId = params?.tokenId?.toString()
+  const collectionAddress = COLLECTION ? COLLECTION.split(':')[0] : COLLECTION
 
   if (
-    COLLECTION &&
+    collectionAddress &&
     !COMMUNITY &&
-    COLLECTION.toLowerCase() !== contract?.toLowerCase()
+    !COLLECTION_SET_ID &&
+    collectionAddress.toLowerCase() !== contract?.toLowerCase()
   ) {
     return {
       notFound: true,
@@ -221,7 +230,7 @@ export const getStaticProps: GetStaticProps<{
   const url = new URL('/tokens/details/v4', RESERVOIR_API_BASE)
 
   const query: paths['/tokens/details/v4']['get']['parameters']['query'] = {
-    tokens: [`${params?.contract?.toString()}:${params?.tokenId?.toString()}`],
+    tokens: [`${contract}:${tokenId}`],
   }
 
   const href = setParams(url, query)
@@ -239,5 +248,7 @@ export const getStaticProps: GetStaticProps<{
     }
   }
 
-  return { props: { collectionId } }
+  return {
+    props: { collectionId, tokenDetails: tokenDetails?.tokens?.[0]?.token },
+  }
 }

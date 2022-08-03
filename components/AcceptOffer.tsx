@@ -1,5 +1,8 @@
-import { Signer } from 'ethers'
-import { acceptOffer, Execute, paths } from '@reservoir0x/client-sdk'
+import {
+  Execute,
+  paths,
+  ReservoirClientActions,
+} from '@reservoir0x/reservoir-kit-client'
 import React, {
   ComponentProps,
   FC,
@@ -10,14 +13,13 @@ import React, {
 import { SWRResponse } from 'swr'
 import * as Dialog from '@radix-ui/react-dialog'
 import ModalCard from './modal/ModalCard'
-import { useAccount, useConnect, useSigner } from 'wagmi'
+import { useSigner } from 'wagmi'
 import Toast from './Toast'
 import { SWRInfiniteResponse } from 'swr/infinite/dist/infinite'
 import { getDetails } from 'lib/fetch/fetch'
 import { CgSpinner } from 'react-icons/cg'
 import { GlobalContext } from 'context/GlobalState'
-
-const RESERVOIR_API_BASE = process.env.NEXT_PUBLIC_RESERVOIR_API_BASE
+import { useReservoirClient } from '@reservoir0x/reservoir-kit-ui'
 
 type Details = paths['/tokens/details/v4']['get']['responses']['200']['schema']
 type Collection = paths['/collection/v2']['get']['responses']['200']['schema']
@@ -49,18 +51,15 @@ const AcceptOffer: FC<Props> = ({
   setToast,
 }) => {
   const [waitingTx, setWaitingTx] = useState<boolean>(false)
-  const { connect, connectors } = useConnect()
-  const { data: accountData } = useAccount()
   const [steps, setSteps] = useState<Execute['steps']>()
   const [open, setOpen] = useState(false)
   const { dispatch } = useContext(GlobalContext)
 
-  // Data from props
-  const [collection, setCollection] = useState<Collection>()
   const [details, setDetails] = useState<SWRResponse<Details, any> | Details>()
+  const reservoirClient = useReservoirClient()
 
   useEffect(() => {
-    if (data && open) {
+    if (data) {
       // Load data if missing
       if ('tokenId' in data) {
         getDetails(data.contract, data.tokenId, setDetails)
@@ -68,10 +67,9 @@ const AcceptOffer: FC<Props> = ({
       // Load data if provided
       if ('details' in data) {
         setDetails(data.details)
-        setCollection(data.collection)
       }
     }
-  }, [data, open])
+  }, [data])
 
   let tokenId: string | undefined = undefined
   let contract: string | undefined = undefined
@@ -102,23 +100,8 @@ const AcceptOffer: FC<Props> = ({
     topBuyValueExists = !token?.market?.topBid?.value
   }
 
-  const modalData = {
-    collection: {
-      name: collection?.collection?.name,
-    },
-    token: {
-      contract: token?.token?.contract,
-      id: token?.token?.tokenId,
-      image: token?.token?.image,
-      name: token?.token?.name,
-      topBuyValue: token?.market?.topBid?.value,
-      floorSellValue: token?.market?.floorAsk?.price,
-    },
-  }
-
-  const handleError: Parameters<typeof acceptOffer>[0]['handleError'] = (
-    err
-  ) => {
+  const handleError = (err: any) => {
+    setWaitingTx(false)
     setOpen(false)
     setSteps(undefined)
     if (err?.type === 'price mismatch') {
@@ -145,42 +128,55 @@ const AcceptOffer: FC<Props> = ({
     })
   }
 
-  const handleSuccess: Parameters<
-    typeof acceptOffer
-  >[0]['handleSuccess'] = () => {
+  const handleSuccess = () => {
+    setWaitingTx(false)
     details && 'mutate' in details && details.mutate()
     mutate && mutate()
   }
 
-  let tokenString: string | undefined = undefined
+  let acceptOfferToken:
+    | Parameters<ReservoirClientActions['acceptOffer']>['0']['token']
+    | undefined = undefined
 
   if (contract && tokenId) {
-    tokenString = `${contract}:${tokenId}`
+    acceptOfferToken = {
+      contract,
+      tokenId: tokenId,
+    }
   }
+
   if (token?.token?.contract && token?.token?.tokenId) {
-    tokenString = `${token?.token?.contract}:${token?.token?.tokenId}`
+    acceptOfferToken = {
+      contract: token.token.contract,
+      tokenId: token.token.tokenId,
+    }
   }
 
   const expectedPrice = token?.market?.topBid?.value
 
-  const execute = async (token: string, taker: string) => {
-    setWaitingTx(true)
-    await acceptOffer({
-      expectedPrice,
-      apiBase: RESERVOIR_API_BASE,
-      query: {
-        token,
-        taker,
-      },
-      setState: setSteps,
-      signer,
-      handleSuccess,
-      handleError,
-    })
-    setWaitingTx(false)
-  }
+  const execute = async (
+    token: Parameters<ReservoirClientActions['acceptOffer']>['0']['token']
+  ) => {
+    if (!signer) {
+      throw 'Missing a signer'
+    }
 
-  const taker = accountData?.address
+    if (!reservoirClient) {
+      throw 'reservoirClient is not initialized'
+    }
+
+    setWaitingTx(true)
+
+    reservoirClient.actions
+      .acceptOffer({
+        signer,
+        expectedPrice,
+        token,
+        onProgress: setSteps,
+      })
+      .then(handleSuccess)
+      .catch(handleError)
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -188,25 +184,24 @@ const AcceptOffer: FC<Props> = ({
         <Dialog.Trigger
           disabled={waitingTx || topBuyValueExists || isInTheWrongNetwork}
           onClick={() => {
-            if (!taker || !tokenString) {
+            if (!acceptOfferToken || !signer) {
               dispatch({ type: 'CONNECT_WALLET', payload: true })
               return
             }
 
-            execute(tokenString, taker)
+            execute(acceptOfferToken)
           }}
-          //className="btn-primary-outline w-full dark:text-white"
         >
           {children ? (
             children
+          ) : waitingTx ? (
+            <p className="btn-primary-outline w-full dark:text-white">
+              <CgSpinner className="h-4 w-4 animate-spin" />
+            </p>
           ) : (
-            <button className="btn-primary-outline w-full dark:text-white">
-              {waitingTx ? (
-                <CgSpinner className="h-4 w-4 animate-spin" />
-              ) : (
-                'Accept Offer'
-              )}
-            </button>
+            <p className="btn-primary-outline w-full dark:text-white">
+              Accept Offer
+            </p>
           )}
         </Dialog.Trigger>
       )}

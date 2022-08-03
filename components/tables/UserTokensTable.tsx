@@ -13,7 +13,7 @@ type Props = {
   isOwner: boolean
   mutate: () => any
   modal: {
-    accountData: ReturnType<typeof useAccount>['data']
+    accountData: ReturnType<typeof useAccount>
     collectionId: string | undefined
     isInTheWrongNetwork: boolean | undefined
     setToast: (data: ComponentProps<typeof Toast>['data']) => any
@@ -133,9 +133,7 @@ const UserTokensTable: FC<Props> = ({
                     isOwner ? (
                       <div className="min-w-[160px]">
                         <span className="group-hover:hidden">
-                          <FormatEth
-                            amount={topOffer}
-                          />
+                          <FormatEth amount={topOffer} />
                         </span>
                         <div className="hidden group-hover:inline-block">
                           <AcceptOffer

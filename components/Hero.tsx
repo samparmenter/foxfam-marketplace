@@ -1,6 +1,6 @@
 import { FC, useEffect, useState, ComponentProps, useRef } from 'react'
 import { FiChevronDown } from 'react-icons/fi'
-import { paths } from '@reservoir0x/client-sdk/dist/types'
+import { paths } from '@reservoir0x/reservoir-kit-client'
 import { useSigner } from 'wagmi'
 import AttributeOfferModal from './AttributeOfferModal'
 import CollectionOfferModal from 'components/CollectionOfferModal'
@@ -15,6 +15,7 @@ import HeroBackground from 'components/hero/HeroBackground'
 import HeroStats from 'components/hero/HeroStats'
 import Sweep from './Sweep'
 import ReactMarkdown from 'react-markdown'
+import { useMediaQuery } from '@react-hookz/web'
 
 const envBannerImage = process.env.NEXT_PUBLIC_BANNER_IMAGE
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID
@@ -51,6 +52,7 @@ const Hero: FC<Props> = ({ fallback, collectionId }) => {
   const { tokens } = useTokens(collectionId, [fallback.tokens], router)
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const descriptionRef = useRef<HTMLParagraphElement | null>(null)
+  const isSmallDevice = useMediaQuery('only screen and (max-width : 750px)')
 
   useEffect(() => {
     const keys = Object.keys(router.query)
@@ -93,7 +95,7 @@ const Hero: FC<Props> = ({ fallback, collectionId }) => {
     count: Number(collection.data?.collection?.tokenCount ?? 0),
     topOffer: collection.data?.collection?.topBid?.value,
     floor: floor?.price,
-    vol24: collection.data?.collection?.volume?.['1day'],
+    allTime: collection.data?.collection?.volume?.allTime,
     volumeChange: collection.data?.collection?.volumeChange?.['1day'],
     floorChange: collection.data?.collection?.floorSaleChange?.['1day'],
   }
@@ -192,7 +194,7 @@ const Hero: FC<Props> = ({ fallback, collectionId }) => {
                   className="text-center text-sm text-[#262626] transition-[width] duration-300 ease-in-out dark:text-white"
                 >
                   <ReactMarkdown linkTarget="_blank">
-                   {header.description}
+                    {header.description}
                   </ReactMarkdown>
                 </p>
               </div>
@@ -237,11 +239,13 @@ const Hero: FC<Props> = ({ fallback, collectionId }) => {
                   setToast={setToast}
                 />
               ))}
-            <Sweep
-              collection={collection}
-              tokens={tokens}
-              setToast={setToast}
-            />
+            {isSmallDevice && (
+              <Sweep
+                collection={collection}
+                tokens={tokens}
+                setToast={setToast}
+              />
+            )}
           </div>
         </div>
       </HeroBackground>

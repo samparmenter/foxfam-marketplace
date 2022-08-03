@@ -1,4 +1,3 @@
-import EthAccount from 'components/EthAccount'
 import Layout from 'components/Layout'
 import {
   GetStaticPaths,
@@ -27,7 +26,7 @@ import toast from 'react-hot-toast'
 import Head from 'next/head'
 import useUserAsks from 'hooks/useUserAsks'
 import useUserBids from 'hooks/useUserBids'
-import { paths, setParams } from '@reservoir0x/client-sdk'
+import { paths, setParams } from '@reservoir0x/reservoir-kit-client'
 import useSearchCommunity from 'hooks/useSearchCommunity'
 import { truncateAddress } from 'lib/truncateText'
 
@@ -42,6 +41,7 @@ const RESERVOIR_API_BASE = process.env.NEXT_PUBLIC_RESERVOIR_API_BASE
 
 // OPTIONAL
 const COMMUNITY = process.env.NEXT_PUBLIC_COMMUNITY
+const COLLECTION_SET_ID = process.env.NEXT_PUBLIC_COLLECTION_SET_ID
 
 type Props = InferGetStaticPropsType<typeof getStaticProps>
 
@@ -50,13 +50,13 @@ const metadata = {
 }
 
 const Address: NextPage<Props> = ({ address, fallback }) => {
-  const { data: accountData } = useAccount()
+  const accountData = useAccount()
 
   const { data: ensAvatar } = useEnsAvatar({
     addressOrName: address,
   })
   const { data: ensName } = useEnsName({ address })
-  const { activeChain } = useNetwork()
+  const { chain: activeChain } = useNetwork()
   const { data: signer } = useSigner()
   const router = useRouter()
   const userTokens = useUserTokens(address)
@@ -153,7 +153,6 @@ const Address: NextPage<Props> = ({ address, fallback }) => {
             <Tabs.Content value="history">
               {/* <UserActivityTable
             data={userActivity}
-            CHAIN_ID={+CHAIN_ID as CHAIN_ID}
           /> */}
             </Tabs.Content>
             {isOwner && (
@@ -235,7 +234,11 @@ export const getStaticProps: GetStaticProps<{
     offset: 0,
   }
 
-  if (COMMUNITY) query.community = COMMUNITY
+  if (COLLECTION_SET_ID) {
+    query.collectionsSetId = COLLECTION_SET_ID
+  } else {
+    if (COMMUNITY) query.community = COMMUNITY
+  }
 
   setParams(url, query)
 
