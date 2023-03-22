@@ -2,11 +2,10 @@ import React, { FC, ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { HiX } from 'react-icons/hi'
 import Steps from 'components/Steps'
-import { Execute } from '@reservoir0x/reservoir-kit-client'
-import FormatEth from 'components/FormatEth'
+import { Execute } from '@reservoir0x/reservoir-sdk'
+import FormatNativeCrypto from 'components/FormatNativeCrypto'
 import Link from 'next/link'
 
-const SOURCE_ID = process.env.NEXT_PUBLIC_SOURCE_ID
 const DARK_MODE = process.env.NEXT_PUBLIC_DARK_MODE
 const DISABLE_POWERED_BY_RESERVOIR =
   process.env.NEXT_PUBLIC_DISABLE_POWERED_BY_RESERVOIR
@@ -14,35 +13,31 @@ const DISABLE_POWERED_BY_RESERVOIR =
 type Props = {
   loading: boolean
   onCloseCallback?: () => any
-  orderbook?: ('opensea' | 'reservoir')[]
   actionButton?: ReactNode
-  onContinue?: () => any
-  steps: Execute['steps']
+  steps?: Execute['steps']
   title: string
-}
-
-const orderbooks = {
-  opensea: 'OpenSea',
-  reservoir: SOURCE_ID || 'Reservoir',
+  children?: ReactNode
 }
 
 const ModalCard: FC<Props> = ({
   actionButton,
   children,
   loading,
-  orderbook,
   onCloseCallback,
-  onContinue,
   steps,
   title,
 }) => {
   // If all executed succesfully, then success is true
   const success =
-    !loading && steps && !steps.find(({ status }) => status === 'incomplete')
-
-  const orderbookTitle =
-    orderbook && `Submitting to ${orderbooks[orderbook[0]]}`
-  const modalTitle = steps && orderbook ? orderbookTitle : title
+    !loading &&
+    steps &&
+    steps.every((step: any) => {
+      if (!step.items || step.items.length == 0) {
+        return true
+      } else {
+        return step.items.every((item: any) => item.status === 'complete')
+      }
+    })
 
   return (
     <Dialog.Content className="fixed inset-0 z-[10000000000] bg-[#000000b6]">
@@ -55,7 +50,7 @@ const ModalCard: FC<Props> = ({
           >
             <div className="mb-4 flex items-center justify-between">
               <Dialog.Title className="reservoir-h4 font-headings dark:text-white">
-                {modalTitle}
+                {title}
               </Dialog.Title>
               <Dialog.Close
                 onClick={onCloseCallback}
@@ -66,21 +61,12 @@ const ModalCard: FC<Props> = ({
             </div>
             {steps ? <Steps steps={steps} /> : children}
             {success ? (
-              orderbook && orderbook?.length > 1 ? (
-                <button
-                  onClick={onContinue}
-                  className="btn-primary-fill w-full"
-                >
-                  Continue
-                </button>
-              ) : (
-                <Dialog.Close
-                  onClick={onCloseCallback}
-                  className="btn-primary-outline w-full dark:border-neutral-600  dark:text-white dark:ring-primary-900 dark:focus:ring-4"
-                >
-                  Success, Close this menu
-                </Dialog.Close>
-              )
+              <Dialog.Close
+                onClick={onCloseCallback}
+                className="btn-primary-outline w-full dark:border-neutral-600  dark:text-white dark:ring-primary-900 dark:focus:ring-4"
+              >
+                Success, Close this menu
+              </Dialog.Close>
             ) : (
               <div className="flex gap-4">
                 <Dialog.Close
@@ -95,13 +81,17 @@ const ModalCard: FC<Props> = ({
           </div>
           {!DISABLE_POWERED_BY_RESERVOIR && (
             <div className="mx-auto flex items-center justify-center rounded-b-2xl bg-neutral-100 py-4 dark:bg-neutral-800 md:w-[510px]">
-              <Link href="https://reservoirprotocol.github.io/">
+              <Link
+                href="https://reservoirprotocol.github.io/"
+                legacyBehavior={true}
+              >
                 <a
                   className="reservoir-tiny flex gap-2 dark:text-white"
                   target="_blank"
                 >
                   Powered by{' '}
                   <img
+                    alt="watermark"
                     src={
                       !!DARK_MODE
                         ? `/reservoir_watermark_dark.svg`
@@ -130,7 +120,7 @@ export const ListPrice = ({
       <div className="reservoir-label-m flex items-center gap-2 rounded-[8px] bg-[#E2CCFF] px-2 py-0.5 text-[#111827]">
         <span className="whitespace-nowrap">List Price</span>
         <div>
-          <FormatEth amount={floorSellValue} logoWidth={7} />
+          <FormatNativeCrypto amount={floorSellValue} logoWidth={7} />
         </div>
       </div>
     )
@@ -149,7 +139,7 @@ export const TopOffer = ({
       <div className="reservoir-label-m flex items-center gap-2 rounded-[8px] bg-[#E2CCFF] px-2 py-0.5">
         <span className="whitespace-nowrap">Current Top Offer</span>
         <div>
-          <FormatEth amount={topBuyValue} logoWidth={7} />
+          <FormatNativeCrypto amount={topBuyValue} logoWidth={7} />
         </div>
       </div>
     )

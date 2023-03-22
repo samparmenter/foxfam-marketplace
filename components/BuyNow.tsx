@@ -1,27 +1,21 @@
-import { paths } from '@reservoir0x/reservoir-kit-client'
-import React, { FC, useContext } from 'react'
+import React, { FC } from 'react'
 import { SWRResponse } from 'swr'
 import { useSigner } from 'wagmi'
-import { GlobalContext } from 'context/GlobalState'
-import { BuyModal } from '@reservoir0x/reservoir-kit-ui'
+import { BuyModal, useTokens } from '@reservoir0x/reservoir-kit-ui'
 import { useSwitchNetwork } from 'wagmi'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
 
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID
 
-type Details = paths['/tokens/details/v4']['get']['responses']['200']['schema']
-type Collection = paths['/collection/v2']['get']['responses']['200']['schema']
-
 type Props = {
   data: {
-    details?: SWRResponse<Details, any>
-    collection?: Collection
-    token?: NonNullable<
-      paths['/tokens/v4']['get']['responses']['200']['schema']['tokens']
-    >[0]
+    details?: ReturnType<typeof useTokens>
+    token?: ReturnType<typeof useTokens>['data'][0]
   }
   isInTheWrongNetwork: boolean | undefined
   signer: ReturnType<typeof useSigner>['data']
   buttonClassName?: string
+  mutate?: SWRResponse['mutate']
 }
 
 const BuyNow: FC<Props> = ({
@@ -29,26 +23,30 @@ const BuyNow: FC<Props> = ({
   isInTheWrongNetwork,
   signer,
   buttonClassName = 'btn-primary-fill w-full',
+  mutate,
 }) => {
-  const { dispatch } = useContext(GlobalContext)
   const { switchNetworkAsync } = useSwitchNetwork({
     chainId: CHAIN_ID ? +CHAIN_ID : undefined,
   })
+  const { openConnectModal } = useConnectModal()
 
   let forSale = false
   let tokenId: string | undefined
   let collectionId: string | undefined
-
-  if ('details' in data && data?.details?.data?.tokens?.[0].token?.tokenId) {
-    const token = data.details.data.tokens[0].token
+  data.details?.data[0]?.token?.tokenId
+  if ('details' in data && data.details?.data[0]?.token?.tokenId) {
+    const token = data.details.data[0].token
     tokenId = token.tokenId
     collectionId = token.collection?.id
-    forSale = data.details.data.tokens[0].market?.floorAsk?.price != null
+    forSale = data.details?.data[0]?.market?.floorAsk?.price != null
   } else if (data.token) {
-    tokenId = data.token.tokenId
-    collectionId = data.token.collection?.id
+    const token = data.token.token
+    const marketData = data.token.market
+    tokenId = token?.tokenId
+    collectionId = token?.collection?.id
     forSale =
-      data.token.floorAskPrice != null && data.token.floorAskPrice != undefined
+      marketData?.floorAsk?.price?.amount != null &&
+      marketData?.floorAsk?.price?.amount != undefined
   }
 
   const trigger = <button className={buttonClassName}>Buy Now</button>
@@ -71,8 +69,8 @@ const BuyNow: FC<Props> = ({
           }
         }
 
-        if (!signer) {
-          dispatch({ type: 'CONNECT_WALLET', payload: true })
+        if (!signer && openConnectModal) {
+          openConnectModal()
         }
       }}
     >
@@ -83,9 +81,9 @@ const BuyNow: FC<Props> = ({
       trigger={trigger}
       tokenId={tokenId}
       collectionId={collectionId}
-      onComplete={() => {
-        if (data.details && data.details.mutate) {
-          data.details.mutate()
+      onClose={() => {
+        if (mutate) {
+          mutate()
         }
       }}
     />

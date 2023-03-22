@@ -1,20 +1,25 @@
-import { setParams, paths } from '@reservoir0x/reservoir-kit-client'
-import FormatEth from 'components/FormatEth'
-import useAsks from 'hooks/useAsks'
+import { useListings } from '@reservoir0x/reservoir-kit-ui'
+import FormatCrypto from '../FormatCrypto'
 import { truncateAddress } from 'lib/truncateText'
 import { DateTime } from 'luxon'
 import Link from 'next/link'
 import { FC } from 'react'
 import Card from './Card'
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_RESERVOIR_API_BASE || 'https://api.reservoir.tools'
+
 type Props = {
-  asks: ReturnType<typeof useAsks>
+  token?: string
 }
 
-const Listings: FC<Props> = ({ asks }) => {
-  const orders = asks.data?.orders
+const Listings: FC<Props> = ({ token }) => {
+  const { data: listings } = useListings({
+    token,
+    sortBy: 'price',
+  })
 
-  if (!orders) return null
+  if (!listings || listings.length === 0) return null
 
   return (
     <div className="col-span-full md:col-span-4 lg:col-span-5 lg:col-start-2">
@@ -38,9 +43,9 @@ const Listings: FC<Props> = ({ asks }) => {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order, index) => {
+              {listings.map((listing, index) => {
                 const { expiration, from, id, unitPrice, source } =
-                  processOrder(order, index)
+                  processOrder(listing, index)
                 return (
                   <tr
                     key={id}
@@ -48,7 +53,12 @@ const Listings: FC<Props> = ({ asks }) => {
                   >
                     {/* UNIT PRICE */}
                     <td className="reservoir-h6 whitespace-nowrap px-6 py-4 font-headings dark:text-white">
-                      <FormatEth amount={unitPrice} />
+                      <FormatCrypto
+                        amount={unitPrice?.amount?.decimal}
+                        address={unitPrice?.currency?.contract}
+                        decimals={unitPrice?.currency?.decimals}
+                        maximumFractionDigits={8}
+                      />
                     </td>
 
                     {/* TIME */}
@@ -70,7 +80,7 @@ const Listings: FC<Props> = ({ asks }) => {
                             {/* @ts-ignore */}
                             <img src={source?.logo} alt="" />
                           </a>
-                          <Link href={from.href}>
+                          <Link href={from.href} legacyBehavior={true}>
                             <a className="reservoir-subtitle text-primary-700 dark:text-primary-100">
                               {truncateAddress(from.address)}
                             </a>
@@ -92,9 +102,7 @@ const Listings: FC<Props> = ({ asks }) => {
 export default Listings
 
 function processOrder(
-  order:
-    | NonNullable<NonNullable<Props['asks']['data']>['orders']>[0]
-    | undefined,
+  order: NonNullable<ReturnType<typeof useListings>>['data']['0'] | undefined,
   index: number
 ) {
   const from = {
@@ -108,18 +116,9 @@ function processOrder(
       ? 'Never'
       : DateTime.fromMillis(+`${order?.validUntil}000`).toRelative()
 
-  const url = new URL('/redirect/logo/v1', 'https://api.reservoir.tools')
-
-  const query: paths['/redirect/logo/v1']['get']['parameters']['query'] = {
-    // @ts-ignore
-    source: order?.source?.name,
-  }
-
-  setParams(url, query)
-
   const source = {
     ...order?.source,
-    logo: url.href,
+    logo: `${API_BASE}/redirect/sources/${order?.source?.name}/logo/v2`,
   }
 
   const data = {
